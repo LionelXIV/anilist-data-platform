@@ -1,0 +1,84 @@
+# Secrets and local env
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Local databases
+db.sqlite3
+*.sqlite3
+*.db
+
+# Static / coverage / caches
+staticfiles/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.ruff_cache/
+
+# Logs
+*.log
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Internal documentation and course process files
+documentation_interne/
+rapport_final/
+DECISIONS.md
+API_REFERENCE_TP2.md
+ETAT_REPRISE.md
+PLAN_EXECUTION.md
+AUDIT_ANCIENS_TP.md
+RAPPORT_CONTENU.md
+CAPTURES_A_REALISER.md
+SCENARIO_VIDEO.md
+CHECKLIST_REMISE.md
+PROMPT_PHASE_*.txt
+
+# Screenshots and media
+capture/
+captures/
+captures_rapport_brutes/
+captures_rapport_propres/
+*.mkv
+*.mp4
+*.mov
+*.avi
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Archives and documents
+*.zip
+*.pdf
+*.docx
+
+# LaTeX auxiliaries and sources (reports stay local)
+*.tex
+*.aux
+*.bbl
+*.blg
+*.toc
+*.out
+*.synctex.gz

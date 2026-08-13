@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+<p>
+  Cette action lance une collecte de démonstration avec des paramètres
+  plafonnés côté serveur. Aucun critère n'est saisi par l'utilisateur.
+</p>
+<ul>
+  <li>Type : <strong>{{ media_type }}</strong></li>
+  <li>Année : <strong>{{ year }}</strong></li>
+  <li>Pages max : <strong>{{ max_pages }}</strong></li>
+  <li>Par page : <strong>{{ per_page }}</strong></li>
+</ul>
+<form method="post" action="{% url 'admin:collector_fetchlog_trigger_fetch' %}">
+  {% csrf_token %}
+  <div class="submit-row">
+    <input type="submit" value="Confirmer et lancer" class="default">
+    <a href="{% url 'admin:collector_fetchlog_changelist' %}" class="button cancel-link">Annuler</a>
+  </div>
+</form>
+{% endblock %}

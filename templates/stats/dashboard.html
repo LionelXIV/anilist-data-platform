@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Statistiques — INF37407 TP1{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  .stat-card { min-height: 7rem; }
+  .chart-box { position: relative; height: 320px; }
+  .cover-thumb { width: 40px; height: 56px; object-fit: cover; border-radius: 0.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end mb-4 gap-2">
+  <div>
+    <h1 class="h2 mb-1">Tableau de bord AniList</h1>
+    <p class="text-muted mb-0">
+      Statistiques dérivées du catalogue local.
+      <span class="ms-1">Dernière mise à jour : {{ stats.generated_at }}</span>
+    </p>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'stats-api' %}">JSON /api/stats/</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4 col-xl">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small"><i class="fa-solid fa-tv me-1"></i> Animés</div>
+        <div class="display-6" id="counter-anime">{{ stats.total_anime }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-xl">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small"><i class="fa-solid fa-book me-1"></i> Mangas</div>
+        <div class="display-6" id="counter-manga">{{ stats.total_manga }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-xl">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small"><i class="fa-solid fa-users me-1"></i> Personnages</div>
+        <div class="display-6" id="counter-characters">{{ stats.total_characters }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-6 col-xl">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small"><i class="fa-solid fa-clapperboard me-1"></i> Studios</div>
+        <div class="display-6">{{ stats.total_studios }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-6 col-xl">
+    <div class="card stat-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="text-muted small"><i class="fa-solid fa-tags me-1"></i> Genres</div>
+        <div class="display-6">{{ stats.total_genres }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">Répartition par genre</div>
+      <div class="card-body">
+        <div class="chart-box">
+          <canvas id="chart-genres" aria-label="Graphique genres"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">Œuvres par année</div>
+      <div class="card-body">
+        <div class="chart-box">
+          <canvas id="chart-years" aria-label="Graphique années"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">Animés par studio principal</div>
+      <div class="card-body">
+        <div class="chart-box">
+          <canvas id="chart-studios" aria-label="Graphique studios"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">Top 10 — popularité</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Titre</th>
+              <th class="text-end">Popularité</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in stats.top_popular %}
+            <tr>
+              <td>
+                {% if item.cover_image_url %}
+                <img src="{{ item.cover_image_url }}" alt="" class="cover-thumb">
+                {% endif %}
+              </td>
+              <td>{{ item.title }}</td>
+              <td class="text-end">{{ item.popularity }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted px-3 py-3">Aucune œuvre.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white">Top 10 — notes</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Titre</th>
+              <th class="text-end">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in stats.top_rated %}
+            <tr>
+              <td>
+                {% if item.cover_image_url %}
+                <img src="{{ item.cover_image_url }}" alt="" class="cover-thumb">
+                {% endif %}
+              </td>
+              <td>{{ item.title }}</td>
+              <td class="text-end">{{ item.average_score }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted px-3 py-3">Aucune œuvre.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ genre_distribution|json_script:"data-genres" }}
+{{ works_by_year|json_script:"data-years" }}
+{{ anime_by_studio|json_script:"data-studios" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const genres = JSON.parse(document.getElementById("data-genres").textContent);
+  const years = JSON.parse(document.getElementById("data-years").textContent);
+  const studios = JSON.parse(document.getElementById("data-studios").textContent);
+
+  const palette = [
+    "#0d6efd", "#6610f2", "#6f42c1", "#d63384", "#dc3545",
+    "#fd7e14", "#ffc107", "#198754", "#20c997", "#0dcaf0"
+  ];
+
+  new Chart(document.getElementById("chart-genres"), {
+    type: "doughnut",
+    data: {
+      labels: genres.map((g) => g.name),
+      datasets: [{
+        data: genres.map((g) => g.count),
+        backgroundColor: genres.map((_, i) => palette[i % palette.length])
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } }
+    }
+  });
+
+  new Chart(document.getElementById("chart-years"), {
+    type: "bar",
+    data: {
+      labels: years.map((y) => y.year),
+      datasets: [{
+        label: "Œuvres",
+        data: years.map((y) => y.count),
+        backgroundColor: "#0d6efd"
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  new Chart(document.getElementById("chart-studios"), {
+    type: "bar",
+    data: {
+      labels: studios.map((s) => s.name),
+      datasets: [{
+        label: "Animés (studio principal)",
+        data: studios.map((s) => s.anime_count),
+        backgroundColor: "#198754"
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+})();
+</script>
+{% endblock %}
