@@ -9,6 +9,7 @@ personnalisée (Graphene-Django 3.x).
 import json
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.authtoken.models import Token
@@ -81,11 +82,23 @@ class GraphQLBase(TestCase):
             media_type="ANIME",
             records_fetched=10,
             records_created=10,
+            records_updated=2,
         )
         cls.user = User.objects.create_user(
             username="gql_user", password="MotDePasseFort42!"
         )
         cls.token = Token.objects.create(user=cls.user)
+        cls.staff_autorise = User.objects.create_user(
+            username="gql_staff_ok",
+            password="MotDePasseFort42!",
+            is_staff=True,
+        )
+        cls.staff_autorise.user_permissions.add(
+            Permission.objects.get(
+                codename="view_fetchlog", content_type__app_label="collector"
+            )
+        )
+        cls.token_staff = Token.objects.create(user=cls.staff_autorise)
 
     def setUp(self):
         self.client = Client()
@@ -298,14 +311,15 @@ class FetchLogsSecuriteTests(GraphQLBase):
             data.get("data") is None or data["data"].get("fetchLogs") is None
         )
 
-    def test_avec_token_retourne_les_journaux(self):
-        data = self.gql(self.QUERY, token=self.token.key)
+    def test_avec_token_staff_retourne_les_journaux(self):
+        data = self.gql(self.QUERY, token=self.token_staff.key)
         self.assertNotIn("errors", data)
         journaux = data["data"]["fetchLogs"]
         self.assertGreaterEqual(len(journaux), 1)
         self.assertEqual(journaux[0]["status"], FetchStatus.SUCCESS)
         self.assertEqual(journaux[0]["recordsFetched"], 10)
         self.assertEqual(journaux[0]["recordsCreated"], 10)
+        self.assertEqual(journaux[0]["recordsUpdated"], 2)
 
     def test_jeton_invalide_refuse(self):
         data = self.gql(self.QUERY, token="pas-un-vrai-token")
@@ -316,8 +330,27 @@ class FetchLogsSecuriteTests(GraphQLBase):
             data.get("data") is None or data["data"].get("fetchLogs") is None
         )
 
-    def test_session_force_login_autorise(self):
+    def test_token_utilisateur_ordinaire_refuse(self):
+        data = self.gql(self.QUERY, token=self.token.key)
+        self.assertIn("errors", data)
+        messages = " ".join(e["message"] for e in data["errors"])
+        self.assertIn("Permission insuffisante", messages)
+        self.assertTrue(
+            data.get("data") is None or data["data"].get("fetchLogs") is None
+        )
+
+    def test_session_utilisateur_ordinaire_refuse(self):
         self.client.force_login(self.user)
+        data = self.gql(self.QUERY)
+        self.assertIn("errors", data)
+        messages = " ".join(e["message"] for e in data["errors"])
+        self.assertIn("Permission insuffisante", messages)
+        self.assertTrue(
+            data.get("data") is None or data["data"].get("fetchLogs") is None
+        )
+
+    def test_session_staff_autorise(self):
+        self.client.force_login(self.staff_autorise)
         data = self.gql(self.QUERY)
         self.assertNotIn("errors", data)
         self.assertGreaterEqual(len(data["data"]["fetchLogs"]), 1)

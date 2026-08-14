@@ -23,7 +23,9 @@ DEFAULT_PER_PAGE = 20
 MAX_PER_PAGE = 100
 DEFAULT_FETCH_LOG_LIMIT = 10
 MAX_FETCH_LOG_LIMIT = 50
+PERM_VIEW_FETCHLOG = "collector.view_fetchlog"
 MSG_AUTH_REQUISE = "Authentification requise"
+MSG_PERMISSION_INSUFFISANTE = "Permission insuffisante"
 
 
 def _est_authentifie(user):
@@ -36,12 +38,28 @@ def _est_authentifie(user):
     return bool(flag)
 
 
-def _exiger_authentification(info):
-    """Refuse les requêtes anonymes sur les champs protégés (ex. fetchLogs)."""
+def _utilisateur_contexte(info):
     context = info.context
-    user = getattr(context, "user", None)
+    return getattr(context, "user", None)
+
+
+def _exiger_authentification(info):
+    """Refuse les requêtes anonymes. Retourne l'utilisateur authentifié."""
+    user = _utilisateur_contexte(info)
     if not _est_authentifie(user):
         raise GraphQLError(MSG_AUTH_REQUISE)
+    return user
+
+
+def _exiger_acces_fetch_logs(info):
+    """Réserve fetchLogs au staff authentifié ayant collector.view_fetchlog.
+
+    Le superutilisateur conserve l'accès via has_perm Django, à condition
+    d'être également staff (create_superuser le garantit).
+    """
+    user = _exiger_authentification(info)
+    if not getattr(user, "is_staff", False) or not user.has_perm(PERM_VIEW_FETCHLOG):
+        raise GraphQLError(MSG_PERMISSION_INSUFFISANTE)
     return user
 
 
@@ -173,8 +191,8 @@ class Query(graphene.ObjectType):
 
     def resolve_fetch_logs(self, info, limit=DEFAULT_FETCH_LOG_LIMIT):
         # TokenAuthentication DRF ne protège PAS automatiquement Graphene :
-        # le contrôle doit être explicite ici (session OU jeton via la vue).
-        _exiger_authentification(info)
+        # le contrôle staff + permission doit être explicite ici.
+        _exiger_acces_fetch_logs(info)
         try:
             limit = int(limit)
         except (TypeError, ValueError):

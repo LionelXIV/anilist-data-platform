@@ -5,11 +5,13 @@ via TokenAuthentication. Cette sous-classe applique le jeton DRF avant
 de déléguer à Graphene, afin que info.context.user.is_authenticated
 fonctionne pour fetch_logs.
 
-Politique d'accès (session OU jeton) — documentée dans DECISIONS.md :
+Politique d'identification (session OU jeton) — documentée dans DECISIONS.md :
 - pas d'en-tête Authorization → session Django (admin/GraphiQL) ou anonyme ;
 - Authorization: Token <valide> → request.user = détenteur du jeton ;
 - jeton présent mais invalide/révoqué → AnonymousUser (refus, pas de
   repli silencieux sur une éventuelle session).
+L'autorisation de fetchLogs (staff + collector.view_fetchlog) est appliquée
+dans le resolver, pas dans cette vue.
 
 GraphiQL suit settings.DEBUG à chaque requête. csrf_exempt est appliqué
 sur cette vue dans config/urls.py (client TP2 / jetons).

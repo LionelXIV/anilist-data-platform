@@ -1,12 +1,14 @@
 """Tests de sécurité GraphQL.
 
-fetchLogs protégé ; 7 autres queries publiques ; GraphiQL hors DEBUG ;
-erreurs sans traceback Python ; introspection laissée active (documentée).
+fetchLogs réservé au staff avec collector.view_fetchlog ; 7 autres queries
+publiques ; GraphiQL hors DEBUG ; erreurs sans traceback Python ;
+introspection laissée active (documentée).
 """
 
 import json
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.authtoken.models import Token
@@ -47,13 +49,40 @@ class GraphQLSecurityBase(TestCase):
         FetchLog.objects.create(
             status=FetchStatus.SUCCESS,
             media_type="ANIME",
-            records_fetched=1,
-            records_created=1,
+            records_fetched=4,
+            records_created=3,
+            records_updated=2,
         )
         cls.user = User.objects.create_user(
             username="gql_sec", password="MotDePasseFort42!"
         )
         cls.token = Token.objects.create(user=cls.user)
+
+        cls.staff_sans_perm = User.objects.create_user(
+            username="gql_staff_ko",
+            password="MotDePasseFort42!",
+            is_staff=True,
+        )
+        cls.token_staff_sans_perm = Token.objects.create(user=cls.staff_sans_perm)
+
+        cls.staff_autorise = User.objects.create_user(
+            username="gql_staff_ok",
+            password="MotDePasseFort42!",
+            is_staff=True,
+        )
+        cls.staff_autorise.user_permissions.add(
+            Permission.objects.get(
+                codename="view_fetchlog", content_type__app_label="collector"
+            )
+        )
+        cls.token_staff_autorise = Token.objects.create(user=cls.staff_autorise)
+
+        cls.superuser = User.objects.create_superuser(
+            username="gql_super",
+            email="gql_super@example.com",
+            password="MotDePasseFort42!",
+        )
+        cls.token_super = Token.objects.create(user=cls.superuser)
 
     def setUp(self):
         self.client = Client()
@@ -79,32 +108,38 @@ class FetchLogsEtQueriesPubliquesTests(GraphQLSecurityBase):
         "recordsFetched recordsCreated recordsUpdated } }"
     )
 
-    def _assert_fetch_logs_refuse(self, data):
+    def _assert_fetch_logs_refuse(self, data, message):
         self.assertIn("errors", data)
         messages = " ".join(e["message"] for e in data["errors"])
-        self.assertIn("Authentification requise", messages)
+        self.assertIn(message, messages)
+        self.assertNotIn("traceback", messages.lower())
         # Aucune donnée journal même partielle.
         self.assertTrue(
             data.get("data") is None or data["data"].get("fetchLogs") is None
         )
 
-    def test_fetch_logs_protege_sans_token(self):
-        """Anonyme (POST /graphql/, sans cookie ni Authorization) → refus."""
-        data = self.gql(self.QUERY_FETCH_LOGS)
-        self._assert_fetch_logs_refuse(data)
-
-    def test_fetch_logs_ok_avec_token(self):
-        data = self.gql(self.QUERY_FETCH_LOGS, token=self.token.key)
+    def _assert_fetch_logs_autorise(self, data):
         self.assertNotIn("errors", data)
         journaux = data["data"]["fetchLogs"]
         self.assertGreaterEqual(len(journaux), 1)
-        self.assertIn("recordsFetched", journaux[0])
-        self.assertIn("recordsCreated", journaux[0])
-        self.assertIn("recordsUpdated", journaux[0])
+        premier = journaux[0]
+        self.assertEqual(premier["recordsFetched"], 4)
+        self.assertEqual(premier["recordsCreated"], 3)
+        self.assertEqual(premier["recordsUpdated"], 2)
+
+    def test_all_genres_anonyme_toujours_accessible(self):
+        data = self.gql("query { allGenres { name } }")
+        self.assertNotIn("errors", data)
+        self.assertIsInstance(data["data"]["allGenres"], list)
+
+    def test_fetch_logs_protege_sans_token(self):
+        """Anonyme (POST /graphql/, sans cookie ni Authorization) → refus."""
+        data = self.gql(self.QUERY_FETCH_LOGS)
+        self._assert_fetch_logs_refuse(data, "Authentification requise")
 
     def test_fetch_logs_refuse_jeton_invalide(self):
         data = self.gql(self.QUERY_FETCH_LOGS, token="jeton-invalide-xyz")
-        self._assert_fetch_logs_refuse(data)
+        self._assert_fetch_logs_refuse(data, "Authentification requise")
 
     def test_fetch_logs_refuse_jeton_revoque(self):
         autre = User.objects.create_user(
@@ -114,19 +149,38 @@ class FetchLogsEtQueriesPubliquesTests(GraphQLSecurityBase):
         cle = jeton.key
         jeton.delete()
         data = self.gql(self.QUERY_FETCH_LOGS, token=cle)
-        self._assert_fetch_logs_refuse(data)
+        self._assert_fetch_logs_refuse(data, "Authentification requise")
 
-    def test_fetch_logs_ok_avec_session(self):
-        """Session Django (ex. admin connecté dans GraphiQL) → autorisé."""
+    def test_fetch_logs_refuse_utilisateur_standard(self):
+        data = self.gql(self.QUERY_FETCH_LOGS, token=self.token.key)
+        self._assert_fetch_logs_refuse(data, "Permission insuffisante")
+
+    def test_fetch_logs_refuse_staff_sans_permission(self):
+        data = self.gql(self.QUERY_FETCH_LOGS, token=self.token_staff_sans_perm.key)
+        self._assert_fetch_logs_refuse(data, "Permission insuffisante")
+
+    def test_fetch_logs_ok_staff_avec_permission(self):
+        data = self.gql(self.QUERY_FETCH_LOGS, token=self.token_staff_autorise.key)
+        self._assert_fetch_logs_autorise(data)
+
+    def test_fetch_logs_ok_superutilisateur(self):
+        data = self.gql(self.QUERY_FETCH_LOGS, token=self.token_super.key)
+        self._assert_fetch_logs_autorise(data)
+
+    def test_fetch_logs_refuse_session_utilisateur_ordinaire(self):
         self.client.force_login(self.user)
         data = self.gql(self.QUERY_FETCH_LOGS)
-        self.assertNotIn("errors", data)
-        self.assertGreaterEqual(len(data["data"]["fetchLogs"]), 1)
+        self._assert_fetch_logs_refuse(data, "Permission insuffisante")
 
-    def test_all_genres_anonyme_toujours_accessible(self):
-        data = self.gql("query { allGenres { name } }")
-        self.assertNotIn("errors", data)
-        self.assertIsInstance(data["data"]["allGenres"], list)
+    def test_fetch_logs_refuse_session_staff_sans_permission(self):
+        self.client.force_login(self.staff_sans_perm)
+        data = self.gql(self.QUERY_FETCH_LOGS)
+        self._assert_fetch_logs_refuse(data, "Permission insuffisante")
+
+    def test_fetch_logs_ok_session_staff_avec_permission(self):
+        self.client.force_login(self.staff_autorise)
+        data = self.gql(self.QUERY_FETCH_LOGS)
+        self._assert_fetch_logs_autorise(data)
 
     def test_sept_autres_queries_publiques(self):
         dynamiques = {
