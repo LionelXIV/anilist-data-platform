@@ -19,4 +19,4 @@ COPY . .
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
-CMD gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"]
