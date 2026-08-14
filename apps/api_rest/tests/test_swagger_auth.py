@@ -63,3 +63,18 @@ class SwaggerAuthRequestBodyTests(APITestCase):
         self.assertIn("email", props)
         self.assertIn("first_name", props)
         self.assertIn("last_name", props)
+
+    def test_titre_api_professionnel(self):
+        info = self.schema.get("info") or {}
+        self.assertEqual(info.get("title"), "AniList Data Platform API")
+        self.assertNotIn("INF37407", str(info))
+        self.assertNotIn("TP1", str(info))
+
+    def test_pages_swagger_et_redoc_sans_reference_scolaire(self):
+        for nom in ("schema-swagger-ui", "schema-redoc"):
+            with self.subTest(page=nom):
+                reponse = self.client.get(reverse(nom))
+                self.assertEqual(reponse.status_code, 200)
+                corps = reponse.content.decode()
+                self.assertNotIn("INF37407", corps)
+                self.assertNotIn("Été 2026", corps)

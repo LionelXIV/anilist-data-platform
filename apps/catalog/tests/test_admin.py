@@ -89,12 +89,33 @@ class CatalogueAdminAccesTests(TestCase):
                 self.assertEqual(reponse.status_code, 302)
                 self.assertIn("/admin/login/", reponse.url)
 
+    def test_utilisateur_standard_non_staff_refuse_sur_admin(self):
+        user = User.objects.create_user(
+            username="user_lambda_admin",
+            password="test-password-not-secret",
+            is_staff=False,
+        )
+        self.client.force_login(user)
+        reponse = self.client.get("/admin/")
+        self.assertIn(reponse.status_code, (302, 403))
+        if reponse.status_code == 302:
+            self.assertIn("/admin/login/", reponse.url)
+
     def test_staff_accede_aux_listes_sans_erreur(self):
         self.client.force_login(self.staff)
         for url in self._urls_liste():
             with self.subTest(url=url):
                 reponse = self.client.get(url)
                 self.assertEqual(reponse.status_code, 200)
+
+    def test_identite_admin_sans_reference_scolaire(self):
+        self.client.force_login(self.staff)
+        reponse = self.client.get("/admin/")
+        self.assertEqual(reponse.status_code, 200)
+        self.assertContains(reponse, "Administration AniList")
+        corps = reponse.content.decode()
+        self.assertNotIn("INF37407", corps)
+        self.assertNotIn("TP1", corps)
 
     def test_recherche_media_par_titre(self):
         self.client.force_login(self.staff)

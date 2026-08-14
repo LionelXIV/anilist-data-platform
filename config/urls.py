@@ -11,6 +11,10 @@ from rest_framework import permissions
 
 from apps.api_graphql.views import DRFAuthenticatedGraphQLView
 
+admin.site.site_header = "Administration AniList"
+admin.site.site_title = "Administration AniList"
+admin.site.index_title = "Tableau de bord"
+
 
 class ApiPrefixSchemaGenerator(OpenAPISchemaGenerator):
     """Ajoute basePath=/api pour que Swagger appelle les URLs réelles."""
@@ -23,7 +27,7 @@ class ApiPrefixSchemaGenerator(OpenAPISchemaGenerator):
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="INF37407 TP1 — API AniList",
+        title="AniList Data Platform API",
         default_version="v1",
         description=(
             "API REST de consultation du catalogue AniList et "

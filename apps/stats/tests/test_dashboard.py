@@ -189,6 +189,17 @@ class DashboardVuesTests(TestCase):
         self.assertContains(reponse, "bootstrap")
         self.assertContains(reponse, "font-awesome")
 
+    def test_identite_publique_sans_reference_scolaire(self):
+        reponse = self.client.get(reverse("stats-dashboard"))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertContains(reponse, "AniList Data Platform")
+        self.assertContains(reponse, "Tableau de bord AniList")
+        corps = reponse.content.decode()
+        self.assertNotIn("INF37407", corps)
+        self.assertNotIn("TP1", corps)
+        self.assertNotIn("Été 2026", corps)
+        self.assertNotIn("Travail pratique", corps)
+
     def test_api_json_200_sans_auth_memes_valeurs(self):
         attendu = get_dashboard_data()
         reponse = self.client.get(reverse("stats-api"))

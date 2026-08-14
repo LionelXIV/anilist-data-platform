@@ -80,6 +80,33 @@ class PermissionsCatalogueSecurityTests(APITestCase):
                         status.HTTP_405_METHOD_NOT_ALLOWED,
                     )
 
+    def test_ecriture_405_meme_avec_jeton_authentifie(self):
+        user = User.objects.create_user(
+            username="sec_writer", password="MotDePasseFort42!"
+        )
+        token = Token.objects.create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        payload = {"name": "X"}
+        for basename in RESSOURCES:
+            liste = reverse(f"{basename}-list")
+            detail = reverse(f"{basename}-detail", args=[self.pks[basename]])
+            cas = (
+                ("post", liste, payload),
+                ("put", detail, payload),
+                ("patch", detail, payload),
+                ("delete", detail, None),
+            )
+            for methode, url, data in cas:
+                with self.subTest(basename=basename, methode=methode):
+                    kwargs = {"format": "json"}
+                    if data is not None:
+                        kwargs["data"] = data
+                    reponse = getattr(self.client, methode)(url, **kwargs)
+                    self.assertEqual(
+                        reponse.status_code,
+                        status.HTTP_405_METHOD_NOT_ALLOWED,
+                    )
+
 
 class PermissionsAuthSecurityTests(APITestCase):
     """register/login AllowAny ; logout/user exigent l'auth."""
@@ -141,6 +168,65 @@ class PermissionsAuthSecurityTests(APITestCase):
             self.client.get(self.url_user).status_code,
             status.HTTP_401_UNAUTHORIZED,
         )
+
+    def test_reponses_auth_sans_mot_de_passe(self):
+        reponse = self.client.post(
+            self.url_register,
+            {
+                "username": "sec_nopwd",
+                "email": "sec_nopwd@example.com",
+                "password": "MotDePasseFort42!",
+            },
+            format="json",
+        )
+        self.assertEqual(reponse.status_code, status.HTTP_201_CREATED)
+        self.assertNotIn("password", reponse.data)
+        self.assertNotIn("password", reponse.data.get("user") or {})
+        texte = str(reponse.data).lower()
+        self.assertNotIn("motdepassefort42", texte)
+
+        login = self.client.post(
+            self.url_login,
+            {"username": "sec_nopwd", "password": "MotDePasseFort42!"},
+            format="json",
+        )
+        self.assertEqual(login.status_code, status.HTTP_200_OK)
+        self.assertNotIn("password", login.data)
+        self.assertNotIn("password", login.data.get("user") or {})
+
+        token = login.data["token"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
+        profil = self.client.get(self.url_user)
+        self.assertEqual(profil.status_code, status.HTTP_200_OK)
+        self.assertNotIn("password", profil.data)
+
+    def test_profil_est_toujours_celui_du_jeton_courant(self):
+        alice = User.objects.create_user(
+            username="sec_alice",
+            email="alice@example.com",
+            password="MotDePasseFort42!",
+            first_name="Alice",
+        )
+        bob = User.objects.create_user(
+            username="sec_bob",
+            email="bob@example.com",
+            password="MotDePasseFort42!",
+            first_name="Bob",
+        )
+        token_alice = Token.objects.create(user=alice)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token_alice.key}")
+        reponse = self.client.patch(
+            self.url_user,
+            {"first_name": "Alicia", "id": bob.pk, "username": "sec_bob"},
+            format="json",
+        )
+        self.assertEqual(reponse.status_code, status.HTTP_200_OK)
+        alice.refresh_from_db()
+        bob.refresh_from_db()
+        self.assertEqual(alice.first_name, "Alicia")
+        self.assertEqual(bob.first_name, "Bob")
+        self.assertEqual(alice.username, "sec_alice")
+        self.assertEqual(reponse.data["id"], alice.pk)
 
 
 class ThrottlingSecurityTests(APITestCase):
