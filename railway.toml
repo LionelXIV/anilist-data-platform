@@ -2,7 +2,7 @@
 # Fichier nécessaire : Nixpacks n'infère pas collectstatic ni le bind $PORT.
 
 [build]
-builder = "NIXPACKS"
+builder = "DOCKERFILE"
 
 [deploy]
 releaseCommand = "python manage.py collectstatic --noinput && python manage.py migrate --noinput"

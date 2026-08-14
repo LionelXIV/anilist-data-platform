@@ -1,0 +1,13 @@
+venv/
+.venv/
+.env
+.env.*
+!.env.example
+.git/
+.railway/
+__pycache__/
+*.py[cod]
+staticfiles/
+documentation_interne/
+rapport_final/
+*.md
