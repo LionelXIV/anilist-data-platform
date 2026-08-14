@@ -1,5 +1,6 @@
-# Nixpacks : conserver le fournisseur Python et ajouter les libs mysqlclient.
-# Sans "...", la liste nixPkgs remplace Python et le build échoue (python: command not found).
+# Nixpacks : conserver Python et installer les en-têtes MySQL via apt
+# (pkg-config mysqlclient / mariadb), requis pour compiler mysqlclient.
 
 [phases.setup]
-nixPkgs = ["...", "libmysqlclient", "pkg-config"]
+nixPkgs = ["..."]
+aptPkgs = ["...", "default-libmysqlclient-dev", "pkg-config", "build-essential"]
