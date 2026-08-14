@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
+
 ENV DJANGO_SETTINGS_MODULE=config.settings.production
 
-CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"]
+CMD ["sh", "/app/start.sh"]
