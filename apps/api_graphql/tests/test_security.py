@@ -209,7 +209,7 @@ class FetchLogsEtQueriesPubliquesTests(GraphQLSecurityBase):
 
 
 class GraphiQLSecurityTests(GraphQLSecurityBase):
-    @override_settings(DEBUG=False)
+    @override_settings(DEBUG=False, GRAPHENE_GRAPHIQL=False)
     def test_graphiql_non_servi_si_debug_false(self):
         reponse = self.client.get(self.url, HTTP_ACCEPT="text/html")
         corps = reponse.content.decode(errors="ignore")
@@ -224,6 +224,16 @@ class GraphiQLSecurityTests(GraphQLSecurityBase):
         self.assertTrue(
             "GraphiQL" in corps or "graphiql" in corps.lower(),
             "GraphiQL devrait être servi lorsque DEBUG=True",
+        )
+
+    @override_settings(DEBUG=False, GRAPHENE_GRAPHIQL=True)
+    def test_graphiql_disponible_si_flag_production(self):
+        reponse = self.client.get(self.url, HTTP_ACCEPT="text/html")
+        self.assertEqual(reponse.status_code, 200)
+        corps = reponse.content.decode(errors="ignore")
+        self.assertTrue(
+            "GraphiQL" in corps or "graphiql" in corps.lower(),
+            "GraphiQL devrait être servi si GRAPHENE_GRAPHIQL=True",
         )
 
 

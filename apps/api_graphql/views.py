@@ -13,8 +13,9 @@ Politique d'identification (session OU jeton) — documentée dans DECISIONS.md 
 L'autorisation de fetchLogs (staff + collector.view_fetchlog) est appliquée
 dans le resolver, pas dans cette vue.
 
-GraphiQL suit settings.DEBUG à chaque requête. csrf_exempt est appliqué
-sur cette vue dans config/urls.py (client TP2 / jetons).
+GraphiQL suit settings.DEBUG, ou GRAPHENE_GRAPHIQL si activé en production
+sans DEBUG=True. csrf_exempt est appliqué sur cette vue dans config/urls.py
+(client TP2 / jetons).
 """
 
 from django.conf import settings
@@ -29,8 +30,10 @@ class DRFAuthenticatedGraphQLView(GraphQLView):
 
     def dispatch(self, request, *args, **kwargs):
         self._appliquer_auth_drf(request)
-        # GraphiQL uniquement en développement, évalué à chaque requête.
-        self.graphiql = bool(settings.DEBUG)
+        # GraphiQL en DEBUG, ou via GRAPHENE_GRAPHIQL (production démo).
+        self.graphiql = bool(settings.DEBUG) or bool(
+            getattr(settings, "GRAPHENE_GRAPHIQL", False)
+        )
         return super().dispatch(request, *args, **kwargs)
 
     @staticmethod

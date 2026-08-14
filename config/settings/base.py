@@ -10,7 +10,8 @@ Voir .env.example pour la liste des variables attendues.
 
 from pathlib import Path
 
-from decouple import Csv, config
+from corsheaders.defaults import default_headers
+from decouple import Csv, UndefinedValueError, config
 
 # BASE_DIR pointe sur la racine du projet, où se trouvent manage.py et .env.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -22,7 +23,25 @@ SECRET_KEY = config("SECRET_KEY")
 
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost", cast=Csv())
+
+def _first_env(*names, default=None):
+    """Première variable d'environnement définie (DB_* local, MYSQL* Railway)."""
+    for name in names:
+        try:
+            value = config(name)
+        except UndefinedValueError:
+            continue
+        if str(value) != "":
+            return value
+    if default is not None:
+        return default
+    return config(names[0])
+
+
+ALLOWED_HOSTS = list(config("ALLOWED_HOSTS", default="localhost", cast=Csv()))
+_railway_host = config("RAILWAY_PUBLIC_DOMAIN", default="").strip()
+if _railway_host and _railway_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_host)
 
 
 # Applications
@@ -91,11 +110,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": config("DB_NAME"),
-        "USER": config("DB_USER"),
-        "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="3308"),
+        "NAME": _first_env("DB_NAME", "MYSQLDATABASE"),
+        "USER": _first_env("DB_USER", "MYSQLUSER"),
+        "PASSWORD": _first_env("DB_PASSWORD", "MYSQLPASSWORD"),
+        "HOST": _first_env("DB_HOST", "MYSQLHOST", default="localhost"),
+        "PORT": _first_env("DB_PORT", "MYSQLPORT", default="3308"),
         "OPTIONS": {
             "charset": "utf8mb4",
         },
@@ -177,13 +196,29 @@ GRAPHENE = {
 # CORS
 # Anticipation du TP2, qui sera une application React distincte.
 
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:3000",
-    cast=Csv(),
+CORS_ALLOWED_ORIGINS = list(
+    config(
+        "CORS_ALLOWED_ORIGINS",
+        default="http://localhost:3000",
+        cast=Csv(),
+    )
 )
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = (*default_headers, "authorization")
+
+CSRF_TRUSTED_ORIGINS = [
+    origin
+    for origin in config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
+    if origin
+]
+if _railway_host:
+    _railway_origin = f"https://{_railway_host}"
+    if _railway_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_railway_origin)
+
+# GraphiQL peut être activé en production (démo) sans DEBUG=True.
+GRAPHENE_GRAPHIQL = config("GRAPHENE_GRAPHIQL", default=False, cast=bool)
 
 
 # Internationalisation
@@ -199,7 +234,8 @@ USE_TZ = True
 
 # Fichiers statiques
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 # Clé primaire par défaut

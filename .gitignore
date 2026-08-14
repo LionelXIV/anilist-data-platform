@@ -7,6 +7,7 @@
 venv/
 .venv/
 env/
+.railway/
 
 # Python
 __pycache__/

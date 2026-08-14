@@ -309,6 +309,25 @@ class CorsSecurityTests(APITestCase):
             "http://localhost:3000",
         )
 
+    @override_settings(
+        CORS_ALLOWED_ORIGINS=["https://atelier-catalogue-ten.vercel.app"],
+        CORS_ALLOW_CREDENTIALS=True,
+    )
+    def test_preflight_autorise_en_tete_authorization(self):
+        reponse = self.client.options(
+            reverse("genre-list"),
+            HTTP_ORIGIN="https://atelier-catalogue-ten.vercel.app",
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD="GET",
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS="authorization,content-type",
+        )
+        self.assertIn(reponse.status_code, (200, 204))
+        self.assertEqual(
+            reponse["Access-Control-Allow-Origin"],
+            "https://atelier-catalogue-ten.vercel.app",
+        )
+        autorises = reponse.get("Access-Control-Allow-Headers", "").lower()
+        self.assertIn("authorization", autorises)
+
 
 class ValidationEtErreursSecurityTests(APITestCase):
     def test_register_serializer_email_est_emailfield(self):

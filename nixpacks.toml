@@ -1,0 +1,5 @@
+# Nixpacks : Python 3.13 (Django 5.2) + bibliothèques de compilation mysqlclient.
+# Sans ces paquets, mysqlclient ne se construit pas sur l'image Railway.
+
+[phases.setup]
+nixPkgs = ["libmysqlclient", "pkg-config"]
